@@ -1,0 +1,22 @@
+<package>
+  <description brief="Driver for the Sick 3000 Laserscanner">
+
+	This driver was developed from Player drivers for the Sick 300 for a robotics lab in the 
+	Autonomous Intelligent Systems Department at Bonn University.
+
+  </description>
+  <author>Andreas Hochrath, Torsten Fiolka</author>
+  <license>GPL</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://www.ros.org/wiki/sicks300/</url>
+  <depend package="roscpp"/>
+  <depend package="tf"/>
+  <depend package="sensor_msgs"/>
+  
+  <export>
+  	<cpp cflags="-I${prefix}/msg/cpp"/>
+  </export>
+
+</package>
+
+
