@@ -3,12 +3,12 @@
  * serialcomm_s300.cpp
  *
  *
- * Copyright (C) 2010
- * Autonomous Intelligent Systems Group
- * University of Bonn, Germany
+ * Copyright (C) 2014
+ * Software Engineering Group
+ * RWTH Aachen University
  *
  *
- * Authors: Andreas Hochrath, Torsten Fiolka
+ * Author: Dimitri Bohlender
  *
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,11 @@
  *
  *
  * Origin:
+ *  Copyright (C) 2010
+ *     Andreas Hochrath, Torsten Fiolka
+ *     Autonomous Intelligent Systems Group
+ *     University of Bonn, Germany
+ *
  *  Player - One Hell of a Robot Server
  *  serialstream.cc & sicks3000.cc
  *  Copyright (C) 2003
@@ -233,7 +238,7 @@ int SerialCommS300::readData()
     bool found = false;
     for (ii = 0; ii < m_rxCount - 22; ++ii)
     {
-      if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0)
+      if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0 && memcmp(&m_rxBuffer[ii+8], "\xFF", 1) == 0)
       {
         memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
         m_rxCount -= ii;
@@ -265,8 +270,27 @@ int SerialCommS300::readData()
     if (size > m_rxCount - 4)
       return -1;
 
-    unsigned short packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
-    unsigned short calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
+    // determine which protocol is used
+    unsigned short protocol = (*reinterpret_cast<unsigned short *> (&m_rxBuffer[10]));
+    if (protocol != PROTOCOL_1_02 && protocol != PROTOCOL_1_03)
+    {
+        std::cout << "SerialCommS300: protocol version " << std::hex << protocol << std::dec << " is unsupported\n";
+        return -1;
+    }
+
+    // read & calculate checksum according to the protocol
+    unsigned short packet_checksum, calc_checksum;
+    if (protocol == PROTOCOL_1_02)
+    {
+        packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
+        calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
+    }
+    else if (protocol == PROTOCOL_1_03)
+    {
+        packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 12]);
+        calc_checksum = createCRC(&m_rxBuffer[4], size + 8);
+    }
+
     if (packet_checksum != calc_checksum)
     {
       std::cout << "SerialCommS300: Checksum's dont match, thats bad (data packet size " << size << ")\n";
@@ -288,8 +312,12 @@ int SerialCommS300::readData()
         }
         else if (data[0] == 0xBB)
         {
+          int data_count;
+    	  if (protocol == PROTOCOL_1_02)
+              data_count = (size - 22) / 2;
+          else if (protocol == PROTOCOL_1_03)
+              data_count = (size - 12) / 2;
 
-          int data_count = (size - 22) / 2;
           if (data_count < 0)
           {
             std::cout << "SerialCommS300: bad data count (" << data_count << ")\n";

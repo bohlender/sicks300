@@ -3,12 +3,12 @@
  * serialcomm_s300.h
  *
  *
- * Copyright (C) 2010
- * Autonomous Intelligent Systems Group
- * University of Bonn, Germany
+ * Copyright (C) 2014
+ * Software Engineering Group
+ * RWTH Aachen University
  *
  *
- * Authors: Andreas Hochrath, Torsten Fiolka
+ * Author: Dimitri Bohlender
  *
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,11 @@
  *
  *
  * Origin:
+ *  Copyright (C) 2010
+ *     Andreas Hochrath, Torsten Fiolka
+ *     Autonomous Intelligent Systems Group
+ *     University of Bonn, Germany
+ *
  *  Player - One Hell of a Robot Server
  *  serialstream.cc & sicks3000.cc
  *  Copyright (C) 2003
@@ -44,6 +49,8 @@
 #define RX_BUFFER_SIZE 4096
 #define DEFAULT_SERIAL_PORT "/dev/sick300"
 #define DEFAULT_BAUD_RATE 500000
+#define PROTOCOL_1_02 0x0102
+#define PROTOCOL_1_03 0x0103
 
 /**
  * \class SerialCommS300
