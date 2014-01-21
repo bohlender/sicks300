@@ -1,11 +1,11 @@
 <package>
-  <description brief="Driver for the Sick 3000 Laserscanner">
+  <description brief="Driver for the SICK S300 Professional laser scanner">
 
-	This driver was developed from Player drivers for the Sick 300 for a robotics lab in the 
-	Autonomous Intelligent Systems Department at Bonn University.
+	ROS package for reading continuous data output of the SICK S00 Professional laser scanner
+	via RS-422. Note that it supports both the old (v.1.02) and the new (v.1.03) protocol.
 
   </description>
-  <author>Andreas Hochrath, Torsten Fiolka</author>
+  <author>Dimitri Bohlender</author>
   <license>GPL</license>
   <review status="unreviewed" notes=""/>
   <url>http://www.ros.org/wiki/sicks300/</url>
