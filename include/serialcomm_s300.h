@@ -46,6 +46,7 @@
 
 #include <string>
 #include <cstddef>
+#include <unistd.h>
 
 #define RX_BUFFER_SIZE 4096
 #define DEFAULT_SERIAL_PORT "/dev/sick300"
