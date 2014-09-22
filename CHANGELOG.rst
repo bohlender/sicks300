@@ -2,8 +2,8 @@
 Changelog for package sicks300
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2014-09-22)
+------------------
 * added unistd.h for gcc
 * Contributors: Marc Hanheide
 
