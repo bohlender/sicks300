@@ -45,6 +45,7 @@
 #define __SERIALCOMMS300_H__
 
 #include <string>
+#include <cstddef>
 
 #define RX_BUFFER_SIZE 4096
 #define DEFAULT_SERIAL_PORT "/dev/sick300"
