@@ -2,6 +2,11 @@
 Changelog for package sicks300
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* changed maintainer to Marc Hanheide
+* Contributors: Marc Hanheide
+
 1.0.1 (2014-09-22)
 ------------------
 * Merge pull request `#2 <https://github.com/strands-project/sicks300/issues/2>`_ from larics/master
