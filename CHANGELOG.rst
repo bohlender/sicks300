@@ -2,8 +2,8 @@
 Changelog for package sicks300
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2014-09-22)
+------------------
 * added <cstddef> for new gcc
 * Contributors: Marc Hanheide
 
