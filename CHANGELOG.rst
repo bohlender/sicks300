@@ -2,8 +2,8 @@
 Changelog for package sicks300
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.2 (2014-09-22)
+------------------
 * changed maintainer to Marc Hanheide
 * Contributors: Marc Hanheide
 
