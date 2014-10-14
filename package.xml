@@ -10,6 +10,7 @@ that was developed by the Autonomous Intelligent Systems Department at
 Bonn University.
   </description>
   <author>Dimitri Bohlender</author>
+  <maintainer email="dimitri.bohlender@todo.org">Dimitri Bohlender</maintainer>
   <maintainer email="marc@hanheide.net">Marc Hanheide</maintainer>
   <license>GPL</license>
   <url>http://www.ros.org/wiki/sicks300/</url>
