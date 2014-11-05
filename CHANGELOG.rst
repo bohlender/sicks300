@@ -2,8 +2,8 @@
 Changelog for package sicks300
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.5 (2014-11-05)
+------------------
 * Merge pull request `#5 <https://github.com/strands-project/sicks300/issues/5>`_ from strands-project/upstream_merge
   Upstream merge
 * Merge branch 'master' of https://github.com/bohlender/sicks300 into upstream_merge

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>sicks300</name>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
   <description>
     Driver for the SICK S300 Professional laser scanner. ROS package for reading continuous data output of the SICK S300 Professional laser scanner via RS-422. Note that it supports both the old (v.1.02) and the new (v.1.03) protocol.
 
