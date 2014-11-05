@@ -83,8 +83,10 @@ protected:
   tf::TransformBroadcaster tf_broadcaster_;
   tf::Vector3 transform_vector_;
 
-  //! Sets the field of view to 180 degree
-  bool reduced_FOV_;
+  //! Scan field of view parameters
+  int field_of_view_;
+  int start_scan_;
+  int end_scan_;
 
   //! Send Transform or not
   bool send_transform_;
