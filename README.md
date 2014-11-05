@@ -49,9 +49,9 @@ Parameters
 
     Transformation along z-axis 
 
-* `~reduced_fov (int, default: 0)`
+* `~field_of_view (int, default: 270)`
 
-    Reduces the field of view to 180 degrees. 
+    The field of view to publish. The maximum view angle is 270 degrees, setting this to a value lower than 270 will remove the left and right sides of the field of view. 
 
 * `~devicename (String, default: "/dev/sick300")`
 
