@@ -339,6 +339,10 @@ int SerialCommS300::readData()
             m_ranges[ii] = static_cast<double> (distance_cm) / 100.0;
           }
 
+          // read the scan number (i.e. sensor timestamp - each scan takes 40 ms)
+          m_scanNumber = *reinterpret_cast<unsigned int *> (&m_rxBuffer[14]);
+          m_telegramNumber = *reinterpret_cast<unsigned short *> (&m_rxBuffer[18]);
+
           memmove(m_rxBuffer, &m_rxBuffer[size + 4], m_rxCount - (size + 4));
           m_rxCount -= (size + 4);
 

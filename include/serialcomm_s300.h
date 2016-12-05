@@ -78,6 +78,16 @@ public:
     return m_ranges;
   }
 
+  inline unsigned int getScanNumber()
+  {
+      return m_scanNumber;
+  }
+
+  inline unsigned int getTelegramNumber()
+  {
+      return m_telegramNumber;
+  }
+
   int connect(const std::string& deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
   int disconnect();
 
@@ -100,6 +110,9 @@ protected:
 
   float* m_ranges;
   unsigned int m_rangesCount;
+
+  unsigned int m_scanNumber;
+  unsigned int m_telegramNumber;
 
 };
 
