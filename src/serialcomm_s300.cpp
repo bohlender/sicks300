@@ -241,6 +241,7 @@ int SerialCommS300::readData()
     {
       if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0 && memcmp(&m_rxBuffer[ii+8], "\xFF", 1) == 0)
       {
+        if(ii > 0) ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", ii);
         memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
         m_rxCount -= ii;
         found = true;
@@ -250,6 +251,7 @@ int SerialCommS300::readData()
 
     if (!found)
     {
+      if(ii > 0) ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found",ii);
       memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
       m_rxCount -= ii;
       return -1;
@@ -294,12 +296,15 @@ int SerialCommS300::readData()
 
     if (packet_checksum != calc_checksum)
     {
-      ROS_WARN_STREAM( "SerialCommS300: Checksums don't match (data packet size " << size << ")");
+      ROS_ERROR("SerialCommS300: Size: %d m_rxCount: %d", size, m_rxCount);
+
+      ROS_ERROR_STREAM("SerialCommS300: Checksums don't match (data packet size " << size << ")");
       memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
       continue;
     }
     else
     {
+      ROS_INFO_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
       uint8_t* data = &m_rxBuffer[20];
       if (data[0] != data[1])
       {

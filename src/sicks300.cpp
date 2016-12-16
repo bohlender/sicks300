@@ -128,6 +128,9 @@ void SickS300::update()
 
     scan_data_.header.stamp = ros::Time::now();
 
+    unsigned int scanNum = serial_comm_.getScanNumber();
+    ROS_INFO("ScanNum: %u", scanNum);
+
     scan_data_publisher_.publish(scan_data_);
 
   }
