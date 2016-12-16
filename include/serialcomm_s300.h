@@ -99,7 +99,7 @@ protected:
 
   unsigned char m_rxBuffer[RX_BUFFER_SIZE];
   int m_fd;
-  int m_rxCount;
+  size_t m_rxCount;
 
   float *m_ranges;
   unsigned int m_rangesCount;

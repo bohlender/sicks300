@@ -197,7 +197,7 @@ int SerialCommS300::readData() {
   if (RX_BUFFER_SIZE - m_rxCount > 0) {
 
     // Read a packet from the laser
-    int len = read(m_fd, &m_rxBuffer[m_rxCount], RX_BUFFER_SIZE - m_rxCount);
+    ssize_t len = read(m_fd, &m_rxBuffer[m_rxCount], RX_BUFFER_SIZE - m_rxCount);
     if (len == 0) {
       return -1;
     }
@@ -213,36 +213,39 @@ int SerialCommS300::readData() {
   while (m_rxCount >= 22) {
 
     // find our continuous data header
-    int ii;
+    int packet_start;
     bool found = false;
-    for (ii = 0; ii < m_rxCount - 22; ++ii) {
-      if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0 && memcmp(&m_rxBuffer[ii + 8], "\xFF", 1) == 0) {
-        if (ii > 0) {
-          ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", ii);
-        }
 
-        memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
-        m_rxCount -= ii;
+    for (packet_start = 0; packet_start < m_rxCount - 22; ++packet_start) {
+      if (memcmp(&m_rxBuffer[packet_start], "\0\0\0\0\0\0", 6) == 0 &&
+          memcmp(&m_rxBuffer[packet_start + 8], "\xFF", 1) == 0) {
+        if (packet_start > 0) {
+          ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", packet_start);
+        }
+        memmove(m_rxBuffer, &m_rxBuffer[packet_start], m_rxCount - packet_start);
+        m_rxCount -= packet_start;
+
         found = true;
         break;
       }
     }
 
     if (!found) {
-      if (ii > 0) {
-        ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found", ii);
+      if (packet_start > 0) {
+        ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found", packet_start);
       }
 
-      memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
-      m_rxCount -= ii;
+      memmove(m_rxBuffer, &m_rxBuffer[packet_start], m_rxCount - packet_start);
+      m_rxCount -= packet_start;
+
       return -1;
     }
 
     // get relevant bits of the header
     // size includes all data from the data block number
     // through to the end of the packet including the checksum
-    unsigned short size = 2 * htons(*reinterpret_cast<unsigned short *> (&m_rxBuffer[6]));
-    //printf("size %d", size);
+    unsigned short size = short(2) * htons(*reinterpret_cast<unsigned short *> (&m_rxBuffer[6]));
+
     if (size > RX_BUFFER_SIZE - 26) {
       ROS_ERROR("SerialCommS300: Requested Size of data is larger than the buffer size");
       memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
@@ -266,18 +269,19 @@ int SerialCommS300::readData() {
     if (protocol == PROTOCOL_1_02) {
       packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
       calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
-    } else if (protocol == PROTOCOL_1_03) {
+    } else { // protocol == PROTOCOL_1_03
       packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 12]);
       calc_checksum = createCRC(&m_rxBuffer[4], size + 8);
     }
 
-    if (packet_checksum != calc_checksum) {
-      ROS_ERROR("SerialCommS300: Size: %d m_rxCount: %d", size, m_rxCount);
+    ROS_INFO("SerialCommS300: Size: %d m_rxCount: %ud accessing checksum at m_rxBuffer[%ud]", size, m_rxCount,
+             size + 12);
 
+    if (packet_checksum != calc_checksum) {
       ROS_ERROR_STREAM("SerialCommS300: Checksums don't match (data packet size " << size << ")");
       memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
       continue;
-    } else {
+    } else { // checksum valid
       ROS_INFO_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
       uint8_t *data = &m_rxBuffer[20];
       if (data[0] != data[1]) {
@@ -286,11 +290,11 @@ int SerialCommS300::readData() {
         if (data[0] == 0xAA) {
           ROS_ERROR("SerialCommS300: We got an I/O data packet, we don't know what to do with it");
         } else if (data[0] == 0xBB) {
-          int data_count;
+          unsigned int data_count;
           if (protocol == PROTOCOL_1_02) {
-            data_count = (size - 22) / 2;
-          } else if (protocol == PROTOCOL_1_03) {
-            data_count = (size - 12) / 2;
+            data_count = (unsigned int) (size - 22) / 2;
+          } else { // protocol == PROTOCOL_1_03
+            data_count = (unsigned int) (size - 12) / 2;
           }
 
           if (data_count < 0) {

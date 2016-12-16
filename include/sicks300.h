@@ -83,15 +83,15 @@ protected:
   tf::Vector3 transform_vector_;
 
   //! Scan field of view parameters
-  int field_of_view_;
-  int start_scan_;
-  int end_scan_;
+  unsigned int field_of_view_;
+  unsigned int start_scan_;
+  unsigned int end_scan_;
 
   //! Send Transform or not
   bool send_transform_;
 
   std::string device_name_;
-  int baud_rate_;
+  unsigned int baud_rate_;
   int connected_;
 };
 

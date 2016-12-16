@@ -50,17 +50,12 @@ SickS300::SickS300() {
   ros::NodeHandle param_node("~");
   ros::NodeHandle nodeHandle("/");
 
-  int param;
   double x, y, z;
 
   // reading transformation parameters from parameter server
   param_node.param(std::string("frame"), scan_data_.header.frame_id, std::string("base_laser_link"));
-  param_node.param(std::string("send_transform"), param, 1);
-  if (param) {
-    send_transform_ = true;
-  } else {
-    send_transform_ = false;
-  }
+  param_node.param<bool>(std::string("send_transform"), send_transform_, 1);
+
   param_node.param(std::string("tf_x"), x, 0.115);
   param_node.param(std::string("tf_y"), y, 0.0);
   param_node.param(std::string("tf_z"), z, 0.21);
@@ -74,15 +69,15 @@ SickS300::SickS300() {
     ROS_WARN("S300 field of view parameter set out of range (0-270). Assuming 270.");
     fov = 270.0;
   }
-  field_of_view_ = (int) (fov * 2.0); // angle increment is .5 degrees
+  field_of_view_ = (unsigned int) (fov * 2.0); // angle increment is .5 degrees
   field_of_view_ <<= 1;
   field_of_view_ >>= 1; // round to a multiple of two
   start_scan_ = 270 - field_of_view_ / 2;
   end_scan_ = 270 + field_of_view_ / 2;
 
-  scan_data_.angle_min = -(field_of_view_ / 4.0) / 180.f * M_PI;
-  scan_data_.angle_max = (field_of_view_ / 4.0) / 180.f * M_PI;
-  scan_data_.angle_increment = 0.5f / 180.f * M_PI;
+  scan_data_.angle_min = (float) (-(field_of_view_ / 4.0) / 180. * M_PI);
+  scan_data_.angle_max = (float) ((field_of_view_ / 4.0) / 180. * M_PI);
+  scan_data_.angle_increment = (float) (0.5 / 180. * M_PI);
   scan_data_.time_increment = 0;
   scan_data_.scan_time = 0.08;
   scan_data_.range_min = 0.1;
@@ -93,7 +88,7 @@ SickS300::SickS300() {
 
   // Reading device parameters
   param_node.param(std::string("devicename"), device_name_, std::string("/dev/sick300"));
-  param_node.param(std::string("baudrate"), baud_rate_, 500000);
+  baud_rate_ = (unsigned int) param_node.param(std::string("baudrate"), 500000);
 
   connected_ = serial_comm_.connect(device_name_, baud_rate_);
 
