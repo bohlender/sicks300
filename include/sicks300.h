@@ -68,7 +68,7 @@ public:
   //! Sending laserscan
   void update();
 
-  //! Broadcasting transform, if endabled
+  //! Broadcasting transform, if enabled
   void broadcast_transform();
 
 protected:

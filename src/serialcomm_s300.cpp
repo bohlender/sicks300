@@ -67,6 +67,9 @@ SerialCommS300::SerialCommS300() {
 }
 
 SerialCommS300::~SerialCommS300() {
+  if (m_ranges) {
+    delete[] m_ranges;
+  }
   disconnect();
 }
 
@@ -192,8 +195,44 @@ unsigned short SerialCommS300::createCRC(unsigned char *data, ssize_t length) {
   return CRC_16;
 }
 
+//
+// Data packet structure, as documented in
+// https://www.sick.com/media/dox/2/92/892/Telegram_listing_S3000_Standard_Advanced_Professional_Remote_S300_Standard_Advanced_Professional_de_en_IM0022892.PDF
+//
+// Addr(dec)  Description
+// <<<<       the packet begins here
+// 0..3       0x00 00 00 00
+// <<<<       the telegram size is measured from here when the version of the protocol is 1.02
+// 4..5       0x00 00
+// 6..7       telegram size, expressed in 2-byte words
+// 8..9       0xff07 "cooordination flag, device address"
+// 10..11     protocol version, 0x0301
+// 12..13     status - 0x0000 normal, 0x0001 lockout
+// <<<<       the telegram size is measured from here when the version of the protocol is 1.03
+// 14..17     scan number
+// 18..19     telegram number
+// 20..21     type id of the block, twice (0xbb for continous data streaming block)
+// 22..23     0x1111 - complete scan range
+// <<<<       end of header
+// 24..1105   541 x 2-word measurements
+// 1106..1107 CRC-16
+// <<<<       packet ends here
+
+// therefore:
+const unsigned int telegram_size_location = 6;
+const unsigned int protocol_version_number_location = 10;
+const unsigned int scan_number_location = 14;
+const unsigned int telegram_number_location = 18;
+const unsigned int block_type_id_location = 20;
+const unsigned int header_size = 24;
+
+// uncounted_header_part + telegram size = total packet size (1108)
+const unsigned int uncounted_header_part_0103 = 14;
+const unsigned int uncounted_header_part_0102 = 4;
+
 int SerialCommS300::readData() {
 
+  // if there is available space in the buffer
   if (RX_BUFFER_SIZE - m_rxCount > 0) {
 
     // Read a packet from the laser
@@ -210,122 +249,127 @@ int SerialCommS300::readData() {
     m_rxCount += len;
   }
 
-  while (m_rxCount >= 22) {
+  while (m_rxCount >= header_size) {
 
     // find our continuous data header
-    int packet_start;
-    bool found = false;
+    unsigned int packet_start;
+    bool found_header = false;
 
-    for (packet_start = 0; packet_start < m_rxCount - 22; ++packet_start) {
+    // stop search if there is less then a complete header in the buffer left
+    for (packet_start = 0; packet_start <= m_rxCount - header_size && !found_header; ++packet_start) {
       if (memcmp(&m_rxBuffer[packet_start], "\0\0\0\0\0\0", 6) == 0 &&
           memcmp(&m_rxBuffer[packet_start + 8], "\xFF", 1) == 0) {
-        if (packet_start > 0) {
-          ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", packet_start);
-        }
-        memmove(m_rxBuffer, &m_rxBuffer[packet_start], m_rxCount - packet_start);
-        m_rxCount -= packet_start;
 
-        found = true;
-        break;
+        if (packet_start > 0) {
+          ROS_WARN("SerialCommS300: Warning: skipping %u bytes, header found", packet_start);
+          discard_byte(packet_start);
+        }
+        found_header = true;
       }
     }
 
-    if (!found) {
-      if (packet_start > 0) {
-        ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found", packet_start);
-      }
+    if (!found_header) {
+      ROS_WARN("SerialCommS300: Warning: skipping %u bytes, header not found", packet_start);
 
-      memmove(m_rxBuffer, &m_rxBuffer[packet_start], m_rxCount - packet_start);
-      m_rxCount -= packet_start;
+      // packet_start is now pointing at least header_size bytes before the end of the buffer
+      discard_byte(packet_start);
 
+      // give up for now
       return -1;
     }
 
-    // get relevant bits of the header
+    // get the relevant bits of the header
     // size includes all data from the data block number
     // through to the end of the packet including the checksum
-    unsigned short size = short(2) * htons(*reinterpret_cast<unsigned short *> (&m_rxBuffer[6]));
-
-    if (size > RX_BUFFER_SIZE - 26) {
-      ROS_ERROR("SerialCommS300: Requested Size of data is larger than the buffer size");
-      memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
-      return -1;
-    }
-
-    // check if we have enough data yet
-    if (size > m_rxCount - 4) {
-      return -1;
-    }
+    unsigned short size = short(2) * htons(*reinterpret_cast<unsigned short *> (&m_rxBuffer[telegram_size_location]));
+    unsigned int total_packet_size;
 
     // determine which protocol is used
-    unsigned short protocol = (*reinterpret_cast<unsigned short *> (&m_rxBuffer[10]));
-    if (protocol != PROTOCOL_1_02 && protocol != PROTOCOL_1_03) {
+    unsigned short protocol = *reinterpret_cast<unsigned short *> (&m_rxBuffer[protocol_version_number_location]);
+
+    // read & calculate the total packet size according to the protocol
+    unsigned short packet_checksum, calc_checksum;
+    if (protocol == PROTOCOL_1_02) {
+      total_packet_size = size + uncounted_header_part_0102;
+    } else if (protocol == PROTOCOL_1_03) {
+      total_packet_size = size + uncounted_header_part_0103;
+    } else {
       ROS_ERROR_STREAM("SerialCommS300: protocol version " << std::hex << protocol << std::dec << " is unsupported");
+      // perhaps we can recover by discarding a byte?
+      discard_byte();
+      continue;
+    }
+
+    if (total_packet_size > RX_BUFFER_SIZE) {
+      ROS_ERROR("SerialCommS300: Requested size of data is larger than the buffer size");
+      discard_byte();
+      continue;
+    }
+
+    // check if we have enough data yet, give up for now if not
+    // TODO: replace with a blocking call
+    if (total_packet_size > m_rxCount) {
       return -1;
     }
 
-    // read & calculate checksum according to the protocol
-    unsigned short packet_checksum, calc_checksum;
-    if (protocol == PROTOCOL_1_02) {
-      packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
-      calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
-    } else { // protocol == PROTOCOL_1_03
-      packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 12]);
-      calc_checksum = createCRC(&m_rxBuffer[4], size + 8);
-    }
+    // the checksum is contained in the last two bytes of the packet
+    packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[total_packet_size - 2]);
 
-    ROS_INFO("SerialCommS300: Size: %d m_rxCount: %ud accessing checksum at m_rxBuffer[%ud]", size, m_rxCount,
-             size + 12);
+    // excluded from checksumming: first four bytes in the header (zeroes), and the checksum bytes themselves
+    calc_checksum = createCRC(&m_rxBuffer[4], total_packet_size - 2 - 4);
+
+    ROS_INFO("SerialCommS300: Size: %d m_rxCount: %lu accessing checksum at m_rxBuffer[%u]", size, m_rxCount,
+             total_packet_size - 2);
 
     if (packet_checksum != calc_checksum) {
       ROS_ERROR_STREAM("SerialCommS300: Checksums don't match (data packet size " << size << ")");
-      memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
+      discard_byte();
       continue;
     } else { // checksum valid
       ROS_INFO_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
-      uint8_t *data = &m_rxBuffer[20];
-      if (data[0] != data[1]) {
-        ROS_ERROR("SerialCommS300: Bad type header bytes don't match");
-      } else {
-        if (data[0] == 0xAA) {
-          ROS_ERROR("SerialCommS300: We got an I/O data packet, we don't know what to do with it");
-        } else if (data[0] == 0xBB) {
-          unsigned int data_count;
-          if (protocol == PROTOCOL_1_02) {
-            data_count = (unsigned int) (size - 22) / 2;
-          } else { // protocol == PROTOCOL_1_03
-            data_count = (unsigned int) (size - 12) / 2;
-          }
 
-          if (data_count < 0) {
-            ROS_ERROR_STREAM("SerialCommS300: bad data count (" << data_count << ")");
-            memmove(m_rxBuffer, &m_rxBuffer[size + 4], m_rxCount - (size + 4));
-            m_rxCount -= (size + 4);
+      if (m_rxBuffer[block_type_id_location] != m_rxBuffer[block_type_id_location + 1]) {
+        ROS_ERROR("SerialCommS300: Bad type header bytes don't match");
+      } else { // block type id bytes OK
+
+        // skip the header to get to the beam measurement data
+        uint8_t *beams = &m_rxBuffer[header_size];
+
+        if (m_rxBuffer[block_type_id_location] == 0xAA) {
+          ROS_ERROR("SerialCommS300: We got an I/O data packet, we don't know what to do with it");
+        } else if (m_rxBuffer[block_type_id_location] == 0xBB) {
+          // measurement data length: total packet size - header - checksums (2 bytes)
+          // each measurement is 2 bytes
+          unsigned int beam_count = (total_packet_size - header_size - 2) / 2;
+
+          if (beam_count < 0) {
+            ROS_ERROR_STREAM("SerialCommS300: bad beam count (" << beam_count << ")");
+            discard_byte();
             continue;
           }
 
+          // TODO remove this ugly memory allocation
           if (m_ranges) {
             delete[] m_ranges;
           }
 
-          m_ranges = new float[data_count];
-          m_rangesCount = data_count;
+          m_ranges = new float[beam_count];
+          m_rangesCount = beam_count;
 
-          for (int ii = 0; ii < data_count; ++ii) {
-            unsigned short distance_cm = (*reinterpret_cast<unsigned short *> (&data[4 + 2 * ii]));
+          for (int i = 0; i < beam_count; ++i) {
+            unsigned short distance_cm = (*reinterpret_cast<unsigned short *> (&beams[2 * i]));
             distance_cm &= 0x1fff; // remove status bits
-            m_ranges[ii] = static_cast<double> (distance_cm) / 100.0;
+            m_ranges[i] = distance_cm / 100.0f;
           }
 
           // read the scan number (i.e. sensor timestamp - each scan takes 40 ms)
-          m_scanNumber = *reinterpret_cast<unsigned int *> (&m_rxBuffer[14]);
-          m_telegramNumber = *reinterpret_cast<unsigned short *> (&m_rxBuffer[18]);
+          m_scanNumber = *reinterpret_cast<unsigned int *> (&m_rxBuffer[scan_number_location]);
+          m_telegramNumber = *reinterpret_cast<unsigned short *> (&m_rxBuffer[telegram_number_location]);
 
-          memmove(m_rxBuffer, &m_rxBuffer[size + 4], m_rxCount - (size + 4));
-          m_rxCount -= (size + 4);
+          discard_byte(total_packet_size);
 
           return 0;
-        } else if (data[0] == 0xCC) {
+        } else if (m_rxBuffer[block_type_id_location] == 0xCC) {
           ROS_ERROR("SerialCommS300: We got a reflector data packet, we don't know what to do with it");
         } else {
           ROS_ERROR("SerialCommS300: We got an unknown packet");
@@ -333,11 +377,14 @@ int SerialCommS300::readData() {
       }
     }
 
-    memmove(m_rxBuffer, &m_rxBuffer[size + 4], m_rxCount - (size + 4));
-    m_rxCount -= (size + 4);
+    discard_byte();
     continue;
   }
 
   return -1;
 }
 
+void SerialCommS300::discard_byte(unsigned int count) {
+  memmove(m_rxBuffer, &m_rxBuffer[count], m_rxCount - count);
+  m_rxCount -= count;
+}

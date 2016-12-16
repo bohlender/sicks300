@@ -95,6 +95,8 @@ private:
 
   unsigned short createCRC(unsigned char *data, ssize_t len);
 
+  void discard_byte(unsigned int count = 1);
+
 protected:
 
   unsigned char m_rxBuffer[RX_BUFFER_SIZE];
