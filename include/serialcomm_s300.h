@@ -59,8 +59,7 @@
  * @brief connects to a Sick S300 laserscanner
  */
 
-class SerialCommS300
-{
+class SerialCommS300 {
 public:
 
   SerialCommS300();
@@ -69,46 +68,40 @@ public:
   // returns 0 if new laser data has arrived
   int readData();
 
-  inline unsigned int getNumRanges()
-  {
+  inline unsigned int getNumRanges() {
     return m_rangesCount;
   }
-  inline float* getRanges()
-  {
+
+  inline float *getRanges() {
     return m_ranges;
   }
 
-  inline unsigned int getScanNumber()
-  {
-      return m_scanNumber;
+  inline unsigned int getScanNumber() {
+    return m_scanNumber;
   }
 
-  inline unsigned int getTelegramNumber()
-  {
-      return m_telegramNumber;
+  inline unsigned int getTelegramNumber() {
+    return m_telegramNumber;
   }
 
-  int connect(const std::string& deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
+  int connect(const std::string &deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
   int disconnect();
 
 private:
 
   void setFlags();
-
   int setBaudRate(int baudRate);
   int baudRateToBaudCode(int baudCode);
 
-  unsigned short createCRC(unsigned char* data, ssize_t len);
+  unsigned short createCRC(unsigned char *data, ssize_t len);
 
 protected:
 
   unsigned char m_rxBuffer[RX_BUFFER_SIZE];
-
   int m_fd;
-
   int m_rxCount;
 
-  float* m_ranges;
+  float *m_ranges;
   unsigned int m_rangesCount;
 
   unsigned int m_scanNumber;

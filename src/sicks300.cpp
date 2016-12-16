@@ -45,8 +45,7 @@
 
 #include "termios.h"
 
-SickS300::SickS300()
-{
+SickS300::SickS300() {
 
   ros::NodeHandle param_node("~");
   ros::NodeHandle nodeHandle("/");
@@ -57,12 +56,9 @@ SickS300::SickS300()
   // reading transformation parameters from parameter server
   param_node.param(std::string("frame"), scan_data_.header.frame_id, std::string("base_laser_link"));
   param_node.param(std::string("send_transform"), param, 1);
-  if (param)
-  {
+  if (param) {
     send_transform_ = true;
-  }
-  else
-  {
+  } else {
     send_transform_ = false;
   }
   param_node.param(std::string("tf_x"), x, 0.115);
@@ -71,7 +67,6 @@ SickS300::SickS300()
 
   transform_vector_ = tf::Vector3(x, y, z);
 
-
   // Reduce field of view to this number of degrees
   double fov;
   param_node.param(std::string("field_of_view"), fov, 270.0);
@@ -79,13 +74,14 @@ SickS300::SickS300()
     ROS_WARN("S300 field of view parameter set out of range (0-270). Assuming 270.");
     fov = 270.0;
   }
-  field_of_view_ = (int)(fov*2.0); // angle increment is .5 degrees
-  field_of_view_ <<=1; field_of_view_ >>=1; // round to a multiple of two
-  start_scan_ = 270 - field_of_view_/2;
-  end_scan_ = 270 + field_of_view_/2;
+  field_of_view_ = (int) (fov * 2.0); // angle increment is .5 degrees
+  field_of_view_ <<= 1;
+  field_of_view_ >>= 1; // round to a multiple of two
+  start_scan_ = 270 - field_of_view_ / 2;
+  end_scan_ = 270 + field_of_view_ / 2;
 
-  scan_data_.angle_min = -(field_of_view_/4.0) / 180.f * M_PI;
-  scan_data_.angle_max = (field_of_view_/4.0) / 180.f * M_PI;
+  scan_data_.angle_min = -(field_of_view_ / 4.0) / 180.f * M_PI;
+  scan_data_.angle_max = (field_of_view_ / 4.0) / 180.f * M_PI;
   scan_data_.angle_increment = 0.5f / 180.f * M_PI;
   scan_data_.time_increment = 0;
   scan_data_.scan_time = 0.08;
@@ -101,30 +97,26 @@ SickS300::SickS300()
 
   connected_ = serial_comm_.connect(device_name_, baud_rate_);
 
-  scan_data_publisher_ = nodeHandle.advertise<sensor_msgs::LaserScan> ("laserscan", 10);
-
+  scan_data_publisher_ = nodeHandle.advertise<sensor_msgs::LaserScan>("laserscan", 10);
 }
 
-SickS300::~SickS300()
-{
+SickS300::~SickS300() {
 }
 
-void SickS300::update()
-{
+void SickS300::update() {
 
-  if (connected_ != 0)
-  {
+  if (connected_ != 0) {
     connected_ = serial_comm_.connect(device_name_, baud_rate_);
   }
 
-  if (connected_ == 0 && serial_comm_.readData() == 0)
-  {
+  if (connected_ == 0 && serial_comm_.readData() == 0) {
 
-    float* ranges = serial_comm_.getRanges();
+    float *ranges = serial_comm_.getRanges();
     unsigned int numRanges = serial_comm_.getNumRanges();
 
-    for (unsigned int i = start_scan_, j=0; i < end_scan_; i++, j++)
+    for (unsigned int i = start_scan_, j = 0; i < end_scan_; i++, j++) {
       scan_data_.ranges[j] = ranges[i];
+    }
 
     scan_data_.header.stamp = ros::Time::now();
 
@@ -132,23 +124,17 @@ void SickS300::update()
     ROS_INFO("ScanNum: %u", scanNum);
 
     scan_data_publisher_.publish(scan_data_);
-
   }
-
 }
 
-void SickS300::broadcast_transform()
-{
-  if (send_transform_)
-  {
+void SickS300::broadcast_transform() {
+  if (send_transform_) {
     tf_broadcaster_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0, 0, 0, 1), transform_vector_),
-                                                      ros::Time::now(), "base_link", "base_laser_link"));
+                                                       ros::Time::now(), "base_link", "base_laser_link"));
   }
-
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
 
   ros::init(argc, argv, "sicks300");
   ros::Time::init();
@@ -160,9 +146,7 @@ int main(int argc, char** argv)
 
   ROS_INFO("Sick300 connected.");
 
-  while (ros::ok())
-  {
-
+  while (ros::ok()) {
     sickS300.update();
     sickS300.broadcast_transform();
 

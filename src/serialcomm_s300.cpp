@@ -61,41 +61,36 @@
 #include <iostream>
 #include <ros/console.h>
 
-SerialCommS300::SerialCommS300()
-{
+SerialCommS300::SerialCommS300() {
   m_rxCount = 0;
   m_ranges = NULL;
 }
 
-SerialCommS300::~SerialCommS300()
-{
+SerialCommS300::~SerialCommS300() {
   disconnect();
 }
 
-int SerialCommS300::connect(const std::string& deviceName, unsigned int baudRate)
-{
+int SerialCommS300::connect(const std::string &deviceName, unsigned int baudRate) {
 
   m_fd = ::open(deviceName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
-  if (m_fd < 0)
-  {
+  if (m_fd < 0) {
     ROS_ERROR_STREAM("SerialCommS300: unable to open serial port " << deviceName);
     return -1;
   }
 
   setFlags();
-  if (setBaudRate(baudRateToBaudCode(baudRate)))
+  if (setBaudRate(baudRateToBaudCode(baudRate))) {
     return -1;
+  }
 
   tcflush(m_fd, TCIOFLUSH);
   usleep(1000);
   tcflush(m_fd, TCIFLUSH);
 
   return 0;
-
 }
 
-void SerialCommS300::setFlags()
-{
+void SerialCommS300::setFlags() {
 
   // set up new settings
   struct termios term;
@@ -113,28 +108,23 @@ void SerialCommS300::setFlags()
   if (tcsetattr(m_fd, TCSANOW, &term) < 0)
     ROS_ERROR("SerialCommS300: failed to set tty device attributes");
   tcflush(m_fd, TCIOFLUSH);
-
 }
 
-int SerialCommS300::setBaudRate(int baudRate)
-{
+int SerialCommS300::setBaudRate(int baudRate) {
 
   struct termios term;
 
-  if (tcgetattr(m_fd, &term) < 0)
-  {
+  if (tcgetattr(m_fd, &term) < 0) {
     ROS_ERROR("SerialCommS300: unable to get device attributes");
     return 1;
   }
 
-  if (cfsetispeed(&term, baudRate) < 0 || cfsetospeed(&term, baudRate) < 0)
-  {
+  if (cfsetispeed(&term, baudRate) < 0 || cfsetospeed(&term, baudRate) < 0) {
     ROS_ERROR_STREAM("SerialCommS300: failed to set serial baud rate " << baudRate);
     return 1;
   }
 
-  if (tcsetattr(m_fd, TCSAFLUSH, &term) < 0)
-  {
+  if (tcsetattr(m_fd, TCSAFLUSH, &term) < 0) {
     ROS_ERROR("SerialCommS300: unable to set device attributes");
     return 1;
   }
@@ -142,10 +132,8 @@ int SerialCommS300::setBaudRate(int baudRate)
   return 0;
 }
 
-int SerialCommS300::baudRateToBaudCode(int baudRate)
-{
-  switch (baudRate)
-  {
+int SerialCommS300::baudRateToBaudCode(int baudRate) {
+  switch (baudRate) {
     case 38400:
       return B38400;
     case 115200:
@@ -157,8 +145,7 @@ int SerialCommS300::baudRateToBaudCode(int baudRate)
   };
 }
 
-int SerialCommS300::disconnect()
-{
+int SerialCommS300::disconnect() {
   ::close(m_fd);
   return 0;
 }
@@ -193,55 +180,47 @@ static const unsigned short crc_table[256] = {0x0000, 0x1021, 0x2042, 0x3063, 0x
                                               0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8, 0x6e17, 0x7e36, 0x4e55, 0x5e74,
                                               0x2e93, 0x3eb2, 0x0ed1, 0x1ef0};
 
-unsigned short SerialCommS300::createCRC(unsigned char* data, ssize_t length)
-{
+unsigned short SerialCommS300::createCRC(unsigned char *data, ssize_t length) {
 
   unsigned short CRC_16 = 0xFFFF;
   unsigned short i;
 
-  for (i = 0; i < length; i++)
-  {
+  for (i = 0; i < length; i++) {
     CRC_16 = (CRC_16 << 8) ^ (crc_table[(CRC_16 >> 8) ^ (data[i])]);
   }
 
   return CRC_16;
-
 }
 
-int SerialCommS300::readData()
-{
+int SerialCommS300::readData() {
 
-  if (RX_BUFFER_SIZE - m_rxCount > 0)
-  {
+  if (RX_BUFFER_SIZE - m_rxCount > 0) {
 
     // Read a packet from the laser
     int len = read(m_fd, &m_rxBuffer[m_rxCount], RX_BUFFER_SIZE - m_rxCount);
-    if (len == 0)
-    {
+    if (len == 0) {
       return -1;
     }
 
-    if (len < 0)
-    {
+    if (len < 0) {
       ROS_ERROR_STREAM("SerialCommS300: error reading form serial port: " << strerror(errno));
       return -1;
     }
 
     m_rxCount += len;
-
   }
 
-  while (m_rxCount >= 22)
-  {
+  while (m_rxCount >= 22) {
 
     // find our continuous data header
     int ii;
     bool found = false;
-    for (ii = 0; ii < m_rxCount - 22; ++ii)
-    {
-      if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0 && memcmp(&m_rxBuffer[ii+8], "\xFF", 1) == 0)
-      {
-        if(ii > 0) ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", ii);
+    for (ii = 0; ii < m_rxCount - 22; ++ii) {
+      if (memcmp(&m_rxBuffer[ii], "\0\0\0\0\0\0", 6) == 0 && memcmp(&m_rxBuffer[ii + 8], "\xFF", 1) == 0) {
+        if (ii > 0) {
+          ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header found", ii);
+        }
+
         memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
         m_rxCount -= ii;
         found = true;
@@ -249,9 +228,11 @@ int SerialCommS300::readData()
       }
     }
 
-    if (!found)
-    {
-      if(ii > 0) ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found",ii);
+    if (!found) {
+      if (ii > 0) {
+        ROS_WARN("SerialCommS300: Warning: skipping %d bytes, header not found", ii);
+      }
+
       memmove(m_rxBuffer, &m_rxBuffer[ii], m_rxCount - ii);
       m_rxCount -= ii;
       return -1;
@@ -262,84 +243,71 @@ int SerialCommS300::readData()
     // through to the end of the packet including the checksum
     unsigned short size = 2 * htons(*reinterpret_cast<unsigned short *> (&m_rxBuffer[6]));
     //printf("size %d", size);
-    if (size > RX_BUFFER_SIZE - 26)
-    {
+    if (size > RX_BUFFER_SIZE - 26) {
       ROS_ERROR("SerialCommS300: Requested Size of data is larger than the buffer size");
       memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
       return -1;
     }
 
     // check if we have enough data yet
-    if (size > m_rxCount - 4)
+    if (size > m_rxCount - 4) {
       return -1;
+    }
 
     // determine which protocol is used
     unsigned short protocol = (*reinterpret_cast<unsigned short *> (&m_rxBuffer[10]));
-    if (protocol != PROTOCOL_1_02 && protocol != PROTOCOL_1_03)
-    {
-        ROS_ERROR_STREAM("SerialCommS300: protocol version " << std::hex << protocol << std::dec << " is unsupported");
-        return -1;
+    if (protocol != PROTOCOL_1_02 && protocol != PROTOCOL_1_03) {
+      ROS_ERROR_STREAM("SerialCommS300: protocol version " << std::hex << protocol << std::dec << " is unsupported");
+      return -1;
     }
 
     // read & calculate checksum according to the protocol
     unsigned short packet_checksum, calc_checksum;
-    if (protocol == PROTOCOL_1_02)
-    {
-        packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
-        calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
-    }
-    else if (protocol == PROTOCOL_1_03)
-    {
-        packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 12]);
-        calc_checksum = createCRC(&m_rxBuffer[4], size + 8);
+    if (protocol == PROTOCOL_1_02) {
+      packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 2]);
+      calc_checksum = createCRC(&m_rxBuffer[4], size - 2);
+    } else if (protocol == PROTOCOL_1_03) {
+      packet_checksum = *reinterpret_cast<unsigned short *> (&m_rxBuffer[size + 12]);
+      calc_checksum = createCRC(&m_rxBuffer[4], size + 8);
     }
 
-    if (packet_checksum != calc_checksum)
-    {
+    if (packet_checksum != calc_checksum) {
       ROS_ERROR("SerialCommS300: Size: %d m_rxCount: %d", size, m_rxCount);
 
       ROS_ERROR_STREAM("SerialCommS300: Checksums don't match (data packet size " << size << ")");
       memmove(m_rxBuffer, &m_rxBuffer[1], --m_rxCount);
       continue;
-    }
-    else
-    {
+    } else {
       ROS_INFO_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
-      uint8_t* data = &m_rxBuffer[20];
-      if (data[0] != data[1])
-      {
+      uint8_t *data = &m_rxBuffer[20];
+      if (data[0] != data[1]) {
         ROS_ERROR("SerialCommS300: Bad type header bytes don't match");
-      }
-      else
-      {
-        if (data[0] == 0xAA)
-        {
+      } else {
+        if (data[0] == 0xAA) {
           ROS_ERROR("SerialCommS300: We got an I/O data packet, we don't know what to do with it");
-        }
-        else if (data[0] == 0xBB)
-        {
+        } else if (data[0] == 0xBB) {
           int data_count;
-    	  if (protocol == PROTOCOL_1_02)
-              data_count = (size - 22) / 2;
-          else if (protocol == PROTOCOL_1_03)
-              data_count = (size - 12) / 2;
+          if (protocol == PROTOCOL_1_02) {
+            data_count = (size - 22) / 2;
+          } else if (protocol == PROTOCOL_1_03) {
+            data_count = (size - 12) / 2;
+          }
 
-          if (data_count < 0)
-          {
+          if (data_count < 0) {
             ROS_ERROR_STREAM("SerialCommS300: bad data count (" << data_count << ")");
             memmove(m_rxBuffer, &m_rxBuffer[size + 4], m_rxCount - (size + 4));
             m_rxCount -= (size + 4);
             continue;
           }
 
-          if (m_ranges)
+          if (m_ranges) {
             delete[] m_ranges;
+          }
 
           m_ranges = new float[data_count];
           m_rangesCount = data_count;
 
-          for (int ii = 0; ii < data_count; ++ii)
-          {
+          for (int ii = 0; ii < data_count; ++ii) {
             unsigned short distance_cm = (*reinterpret_cast<unsigned short *> (&data[4 + 2 * ii]));
             distance_cm &= 0x1fff; // remove status bits
             m_ranges[ii] = static_cast<double> (distance_cm) / 100.0;
@@ -353,14 +321,9 @@ int SerialCommS300::readData()
           m_rxCount -= (size + 4);
 
           return 0;
-
-        }
-        else if (data[0] == 0xCC)
-        {
+        } else if (data[0] == 0xCC) {
           ROS_ERROR("SerialCommS300: We got a reflector data packet, we don't know what to do with it");
-        }
-        else
-        {
+        } else {
           ROS_ERROR("SerialCommS300: We got an unknown packet");
         }
       }
@@ -372,6 +335,5 @@ int SerialCommS300::readData()
   }
 
   return -1;
-
 }
 

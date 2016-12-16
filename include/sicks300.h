@@ -59,8 +59,7 @@
  * transform for the laser
  */
 
-class SickS300
-{
+class SickS300 {
 public:
 
   SickS300();
