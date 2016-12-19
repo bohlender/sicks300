@@ -89,6 +89,7 @@ protected:
 
   ros::NodeHandle param_node_;
   ros::NodeHandle nodeHandle_;
+  std::string connect_cmd_;
 
   //! Send Transform or not
   bool send_transform_;

@@ -59,6 +59,8 @@ SickS300::SickS300() : param_node_("~"), nodeHandle_("/") {
   param_node_.param(std::string("tf_y"), y, 0.0);
   param_node_.param(std::string("tf_z"), z, 0.21);
 
+  connect_cmd_ = param_node_.param<std::string>("connect_cmd", std::string());
+
   transform_vector_ = tf::Vector3(x, y, z);
 
   // Reduce field of view to this number of degrees
@@ -90,7 +92,7 @@ SickS300::SickS300() : param_node_("~"), nodeHandle_("/") {
   param_node_.param(std::string("devicename"), device_name_, std::string("/dev/sick300"));
   baud_rate_ = (unsigned int) param_node_.param(std::string("baudrate"), 500000);
 
-  scan_data_publisher_ = nodeHandle.advertise<sensor_msgs::LaserScan>("laserscan", 10);
+  scan_data_publisher_ = nodeHandle_.advertise<sensor_msgs::LaserScan>("laserscan", 10);
 }
 
 SickS300::~SickS300() {
@@ -99,6 +101,10 @@ SickS300::~SickS300() {
 void SickS300::update() {
 
   if (connected_ != 0) {
+    if (!connect_cmd_.empty()) {
+      ROS_INFO_STREAM("Executing connect cmd " << connect_cmd_ << "...");
+      system(connect_cmd_.c_str());
+    }
     ROS_INFO("Opening connection to Sick300-laser...");
     connected_ = serial_comm_.connect(device_name_, baud_rate_);
     if (connected_ == 0) {
