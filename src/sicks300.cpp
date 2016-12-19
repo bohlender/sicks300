@@ -47,26 +47,23 @@
 #include <chrono>
 #include <thread>
 
-SickS300::SickS300() {
-
-  ros::NodeHandle param_node("~");
-  ros::NodeHandle nodeHandle("/");
+SickS300::SickS300() : param_node_("~"), nodeHandle_("/") {
 
   double x, y, z;
 
   // reading transformation parameters from parameter server
-  param_node.param(std::string("frame"), scan_data_.header.frame_id, std::string("base_laser_link"));
-  param_node.param<bool>(std::string("send_transform"), send_transform_, 1);
+  param_node_.param(std::string("frame"), scan_data_.header.frame_id, std::string("base_laser_link"));
+  param_node_.param<bool>(std::string("send_transform"), send_transform_, 1);
 
-  param_node.param(std::string("tf_x"), x, 0.115);
-  param_node.param(std::string("tf_y"), y, 0.0);
-  param_node.param(std::string("tf_z"), z, 0.21);
+  param_node_.param(std::string("tf_x"), x, 0.115);
+  param_node_.param(std::string("tf_y"), y, 0.0);
+  param_node_.param(std::string("tf_z"), z, 0.21);
 
   transform_vector_ = tf::Vector3(x, y, z);
 
   // Reduce field of view to this number of degrees
   double fov;
-  param_node.param(std::string("field_of_view"), fov, 270.0);
+  param_node_.param(std::string("field_of_view"), fov, 270.0);
   if ((fov > 270) || (fov < 0)) {
     ROS_WARN("S300 field of view parameter set out of range (0-270). Assuming 270.");
     fov = 270.0;
@@ -90,8 +87,8 @@ SickS300::SickS300() {
   connected_ = -1;
 
   // Reading device parameters
-  param_node.param(std::string("devicename"), device_name_, std::string("/dev/sick300"));
-  baud_rate_ = (unsigned int) param_node.param(std::string("baudrate"), 500000);
+  param_node_.param(std::string("devicename"), device_name_, std::string("/dev/sick300"));
+  baud_rate_ = (unsigned int) param_node_.param(std::string("baudrate"), 500000);
 
   scan_data_publisher_ = nodeHandle.advertise<sensor_msgs::LaserScan>("laserscan", 10);
 }

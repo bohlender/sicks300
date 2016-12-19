@@ -87,6 +87,9 @@ protected:
   unsigned int start_scan_;
   unsigned int end_scan_;
 
+  ros::NodeHandle param_node_;
+  ros::NodeHandle nodeHandle_;
+
   //! Send Transform or not
   bool send_transform_;
 
