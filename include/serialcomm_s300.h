@@ -103,6 +103,8 @@ protected:
   int m_fd;
   size_t m_rxCount;
 
+  int zerobytesread_counter;
+
   float *m_ranges;
   unsigned int m_rangesCount;
 

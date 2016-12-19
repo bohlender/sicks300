@@ -86,6 +86,8 @@ int SerialCommS300::connect(const std::string &deviceName, unsigned int baudRate
     return -1;
   }
 
+  zerobytesread_counter = 0;
+
   tcflush(m_fd, TCIOFLUSH);
   usleep(1000);
   tcflush(m_fd, TCIFLUSH);
@@ -230,7 +232,15 @@ const unsigned int header_size = 24;
 const unsigned int uncounted_header_part_0103 = 14;
 const unsigned int uncounted_header_part_0102 = 4;
 
+// returns -1 if a packet has not been successfully read, or -2
+// if a more serious connection problem has been detected
 int SerialCommS300::readData() {
+
+  int available_bytes;
+  ioctl(m_fd, FIONREAD, &available_bytes);
+  if (available_bytes > 1200) {
+    ROS_WARN("SerialCommS300: more than one packet is buffered, measurements are potentially stale!");
+  }
 
   // if there is available space in the buffer
   if (RX_BUFFER_SIZE - m_rxCount > 0) {
@@ -238,13 +248,22 @@ int SerialCommS300::readData() {
     // Read a packet from the laser
     ssize_t len = read(m_fd, &m_rxBuffer[m_rxCount], RX_BUFFER_SIZE - m_rxCount);
     if (len == 0) {
-      return -1;
+      ROS_WARN("SerialCommS300: no bytes received!");
+      if (zerobytesread_counter++ < 10) {
+        return -1;
+      } else {
+        // if more than 10 times 0 bytes have been read, return error code -2
+        // indicating a bad connection
+        return -2;
+      }
     }
 
     if (len < 0) {
-      ROS_ERROR_STREAM("SerialCommS300: error reading form serial port: " << strerror(errno));
-      return -1;
+      ROS_ERROR_STREAM("SerialCommS300: error reading from serial port: " << strerror(errno));
+      return -2;
     }
+
+    zerobytesread_counter = 0;
 
     m_rxCount += len;
   }

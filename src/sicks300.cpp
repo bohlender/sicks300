@@ -44,6 +44,8 @@
 #include "sicks300.h"
 
 #include "termios.h"
+#include <chrono>
+#include <thread>
 
 SickS300::SickS300() {
 
@@ -85,12 +87,11 @@ SickS300::SickS300() {
   scan_data_.ranges.resize(field_of_view_);
   scan_data_.intensities.resize(field_of_view_);
 
+  connected_ = -1;
 
   // Reading device parameters
   param_node.param(std::string("devicename"), device_name_, std::string("/dev/sick300"));
   baud_rate_ = (unsigned int) param_node.param(std::string("baudrate"), 500000);
-
-  connected_ = serial_comm_.connect(device_name_, baud_rate_);
 
   scan_data_publisher_ = nodeHandle.advertise<sensor_msgs::LaserScan>("laserscan", 10);
 }
@@ -101,24 +102,37 @@ SickS300::~SickS300() {
 void SickS300::update() {
 
   if (connected_ != 0) {
+    ROS_INFO("Opening connection to Sick300-laser...");
     connected_ = serial_comm_.connect(device_name_, baud_rate_);
+    if (connected_ == 0) {
+      ROS_INFO("Sick300 connected.");
+    } else {
+      ROS_ERROR("Sick300 not connected, will try connecting again in 500 msec...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
   }
 
-  if (connected_ == 0 && serial_comm_.readData() == 0) {
+  if (connected_ == 0) {
+    int status = serial_comm_.readData();
+    if (status == -2) {
+      ROS_ERROR("Error in communication, closing connection and waiting 500 msec...");
+      serial_comm_.disconnect();
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      connected_ = -1;
+    } else if (status == 0) { // packet successfully read
+      float *ranges = serial_comm_.getRanges();
+      unsigned int numRanges = serial_comm_.getNumRanges();
 
-    float *ranges = serial_comm_.getRanges();
-    unsigned int numRanges = serial_comm_.getNumRanges();
+      for (unsigned int i = start_scan_, j = 0; i < end_scan_; i++, j++) {
+        scan_data_.ranges[j] = ranges[i];
+      }
 
-    for (unsigned int i = start_scan_, j = 0; i < end_scan_; i++, j++) {
-      scan_data_.ranges[j] = ranges[i];
+      scan_data_.header.stamp = ros::Time::now();
+      unsigned int scanNum = serial_comm_.getScanNumber();
+      ROS_INFO("ScanNum: %u", scanNum);
+
+      scan_data_publisher_.publish(scan_data_);
     }
-
-    scan_data_.header.stamp = ros::Time::now();
-
-    unsigned int scanNum = serial_comm_.getScanNumber();
-    ROS_INFO("ScanNum: %u", scanNum);
-
-    scan_data_publisher_.publish(scan_data_);
   }
 }
 
@@ -135,11 +149,7 @@ int main(int argc, char **argv) {
   ros::Time::init();
   ros::Rate loop_rate(20);
 
-  ROS_INFO("Opening connection to Sick300-Laser...");
-
   SickS300 sickS300;
-
-  ROS_INFO("Sick300 connected.");
 
   while (ros::ok()) {
     sickS300.update();
