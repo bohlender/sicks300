@@ -75,7 +75,7 @@ SerialCommS300::~SerialCommS300() {
 
 int SerialCommS300::connect(const std::string &deviceName, unsigned int baudRate) {
 
-  m_fd = ::open(deviceName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+  m_fd = ::open(deviceName.c_str(), O_RDWR | O_NOCTTY);
   if (m_fd < 0) {
     ROS_ERROR_STREAM("SerialCommS300: unable to open serial port " << deviceName);
     return -1;
@@ -104,7 +104,7 @@ void SerialCommS300::setFlags() {
   tcgetattr(m_fd, &term);
 
   term.c_cc[VMIN] = 0;
-  term.c_cc[VTIME] = 0;
+  term.c_cc[VTIME] = 5;
   term.c_cflag = CS8 | CREAD;
   term.c_iflag = INPCK;
   term.c_oflag = 0;
@@ -232,8 +232,9 @@ const unsigned int header_size = 24;
 const unsigned int uncounted_header_part_0103 = 14;
 const unsigned int uncounted_header_part_0102 = 4;
 
-// returns -1 if a packet has not been successfully read, or -2
-// if a more serious connection problem has been detected
+// returns -1 if a packet has not been successfully read (soft failure, i.e. we need to try again
+// when the rest of the bytes of the sensor message arrive); returns -2 on serious failure e.g.
+// the interface handle is invalid and we should try reconnecting
 int SerialCommS300::readData() {
 
   int available_bytes;
@@ -242,30 +243,15 @@ int SerialCommS300::readData() {
     ROS_WARN("SerialCommS300: more than one packet is buffered, measurements are potentially stale!");
   }
 
-  // if there is available space in the buffer
-  if (RX_BUFFER_SIZE - m_rxCount > 0) {
-
-    // Read a packet from the laser
-    ssize_t len = read(m_fd, &m_rxBuffer[m_rxCount], RX_BUFFER_SIZE - m_rxCount);
-    if (len == 0) {
-      ROS_WARN("SerialCommS300: no bytes received!");
-      if (zerobytesread_counter++ < 10) {
-        return -1;
-      } else {
-        // if more than 10 times 0 bytes have been read, return error code -2
-        // indicating a bad connection
-        return -2;
-      }
+  // if we do not have at least a header in buffer, read it
+  if (m_rxCount < header_size) {
+    ROS_INFO("SerialCommS300: Reading header bytes");
+    // read up to a packet header
+    int status = read_byte((unsigned int) (header_size - m_rxCount));
+    m_receivedTime = ros::Time::now();
+    if (status != 0) { // failure
+      return status;
     }
-
-    if (len < 0) {
-      ROS_ERROR_STREAM("SerialCommS300: error reading from serial port: " << strerror(errno));
-      return -2;
-    }
-
-    zerobytesread_counter = 0;
-
-    m_rxCount += len;
   }
 
   while (m_rxCount >= header_size) {
@@ -325,9 +311,15 @@ int SerialCommS300::readData() {
       continue;
     }
 
-    // check if we have enough data yet, give up for now if not
-    // TODO: replace with a blocking call
-    if (total_packet_size > m_rxCount) {
+    // read the rest of the packet
+    int status = read_byte(total_packet_size - m_rxCount);
+    if (status == -2) {
+      ROS_ERROR("SerialCommS300: Could not read the rest of the data packet!");
+      return -2;
+    }
+    // give up for now if we don't have all bytes, return soft failure
+    if (m_rxCount < total_packet_size) {
+      ROS_WARN("SerialCommS300: Giving up for now, have only %lu bytes", m_rxCount);
       return -1;
     }
 
@@ -400,7 +392,30 @@ int SerialCommS300::readData() {
     continue;
   }
 
+  // we should not have reached here, but return soft failure just in case
   return -1;
+}
+
+int SerialCommS300::read_byte(unsigned int count) {
+  ssize_t len = read(m_fd, &m_rxBuffer[m_rxCount], count);
+
+  if (len < 0) {
+    ROS_ERROR_STREAM("SerialCommS300: error reading from serial port: " << strerror(errno));
+    return -2;
+  } else if (len == 0) {
+    ROS_WARN("SerialCommS300: received zero bytes!");
+    if (zerobytesread_counter++ < 5) {
+      return -1;
+    } else {
+      // if more than 5 times 0 bytes have been read, return error code -2
+      // indicating a bad connection
+      return -2;
+    }
+  }
+
+  m_rxCount += len;
+
+  return 0;
 }
 
 void SerialCommS300::discard_byte(unsigned int count) {

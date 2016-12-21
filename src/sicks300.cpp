@@ -130,7 +130,7 @@ void SickS300::update() {
         scan_data_.ranges[j] = ranges[i];
       }
 
-      scan_data_.header.stamp = ros::Time::now();
+      scan_data_.header.stamp = serial_comm_.getReceivedTime();
       unsigned int scanNum = serial_comm_.getScanNumber();
       ROS_INFO("ScanNum: %u", scanNum);
 
@@ -150,16 +150,15 @@ int main(int argc, char **argv) {
 
   ros::init(argc, argv, "sicks300");
   ros::Time::init();
-  ros::Rate loop_rate(20);
+  //ros::Rate loop_rate(20); // not needed since blocking read is used
 
   SickS300 sickS300;
 
   while (ros::ok()) {
     sickS300.update();
     sickS300.broadcast_transform();
-
     ros::spinOnce();
-    loop_rate.sleep();
+    //loop_rate.sleep();
   }
 
   ROS_INFO("Laser shut down.");

@@ -47,6 +47,7 @@
 #include <string>
 #include <cstddef>
 #include <unistd.h>
+#include <ros/ros.h>
 
 #define RX_BUFFER_SIZE 4096
 #define DEFAULT_SERIAL_PORT "/dev/sick300"
@@ -84,6 +85,10 @@ public:
     return m_telegramNumber;
   }
 
+  inline ros::Time getReceivedTime() {
+    return m_receivedTime;
+  }
+
   int connect(const std::string &deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
   int disconnect();
 
@@ -95,7 +100,11 @@ private:
 
   unsigned short createCRC(unsigned char *data, ssize_t len);
 
+  // discards read bytes from the buffer
   void discard_byte(unsigned int count = 1);
+
+  // read bytes into buffer
+  int read_byte(unsigned int count = 1);
 
 protected:
 
@@ -110,6 +119,7 @@ protected:
 
   unsigned int m_scanNumber;
   unsigned int m_telegramNumber;
+  ros::Time m_receivedTime;
 
 };
 
