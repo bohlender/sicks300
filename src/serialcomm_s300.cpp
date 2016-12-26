@@ -245,7 +245,7 @@ int SerialCommS300::readData() {
 
   // if we do not have at least a header in buffer, read it
   if (m_rxCount < header_size) {
-    ROS_INFO("SerialCommS300: Reading header bytes");
+    ROS_DEBUG("SerialCommS300: Reading header bytes");
     // read up to a packet header
     int status = read_byte((unsigned int) (header_size - m_rxCount));
     m_receivedTime = ros::Time::now();
@@ -319,7 +319,7 @@ int SerialCommS300::readData() {
     }
     // give up for now if we don't have all bytes, return soft failure
     if (m_rxCount < total_packet_size) {
-      ROS_WARN("SerialCommS300: Giving up for now, have only %lu bytes", m_rxCount);
+      ROS_DEBUG("SerialCommS300: Giving up for now, have only %lu bytes", m_rxCount);
       return -1;
     }
 
@@ -329,15 +329,14 @@ int SerialCommS300::readData() {
     // excluded from checksumming: first four bytes in the header (zeroes), and the checksum bytes themselves
     calc_checksum = createCRC(&m_rxBuffer[4], total_packet_size - 2 - 4);
 
-    ROS_INFO("SerialCommS300: Size: %d m_rxCount: %lu accessing checksum at m_rxBuffer[%u]", size, m_rxCount,
-             total_packet_size - 2);
+    ROS_DEBUG("SerialCommS300: Size: %d m_rxCount: %lu accessing checksum at m_rxBuffer[%u]", size, m_rxCount, total_packet_size - 2);
 
     if (packet_checksum != calc_checksum) {
       ROS_ERROR_STREAM("SerialCommS300: Checksums don't match (data packet size " << size << ")");
       discard_byte();
       continue;
     } else { // checksum valid
-      ROS_INFO_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
+      ROS_DEBUG_STREAM("SerialCommS300: Checksums match (data packet size " << size << ")");
 
       if (m_rxBuffer[block_type_id_location] != m_rxBuffer[block_type_id_location + 1]) {
         ROS_ERROR("SerialCommS300: Bad type header bytes don't match");

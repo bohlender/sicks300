@@ -132,7 +132,7 @@ void SickS300::update() {
 
       scan_data_.header.stamp = serial_comm_.getReceivedTime();
       unsigned int scanNum = serial_comm_.getScanNumber();
-      ROS_INFO("ScanNum: %u", scanNum);
+      ROS_DEBUG("ScanNum: %u", scanNum);
 
       scan_data_publisher_.publish(scan_data_);
     }
