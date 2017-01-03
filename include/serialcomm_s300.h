@@ -47,6 +47,7 @@
 #include <string>
 #include <cstddef>
 #include <unistd.h>
+#include <ros/ros.h>
 
 #define RX_BUFFER_SIZE 4096
 #define DEFAULT_SERIAL_PORT "/dev/sick300"
@@ -59,8 +60,7 @@
  * @brief connects to a Sick S300 laserscanner
  */
 
-class SerialCommS300
-{
+class SerialCommS300 {
 public:
 
   SerialCommS300();
@@ -69,37 +69,57 @@ public:
   // returns 0 if new laser data has arrived
   int readData();
 
-  inline unsigned int getNumRanges()
-  {
+  inline unsigned int getNumRanges() {
     return m_rangesCount;
   }
-  inline float* getRanges()
-  {
+
+  inline float *getRanges() {
     return m_ranges;
   }
 
-  int connect(const std::string& deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
+  inline unsigned int getScanNumber() {
+    return m_scanNumber;
+  }
+
+  inline unsigned int getTelegramNumber() {
+    return m_telegramNumber;
+  }
+
+  inline ros::Time getReceivedTime() {
+    return m_receivedTime;
+  }
+
+  int connect(const std::string &deviceName, unsigned int baudRate = DEFAULT_BAUD_RATE);
   int disconnect();
 
 private:
 
   void setFlags();
-
   int setBaudRate(int baudRate);
   int baudRateToBaudCode(int baudCode);
 
-  unsigned short createCRC(unsigned char* data, ssize_t len);
+  unsigned short createCRC(unsigned char *data, ssize_t len);
+
+  // discards read bytes from the buffer
+  void discard_byte(unsigned int count = 1);
+
+  // read bytes into buffer
+  int read_byte(unsigned int count = 1);
 
 protected:
 
   unsigned char m_rxBuffer[RX_BUFFER_SIZE];
-
   int m_fd;
+  size_t m_rxCount;
 
-  int m_rxCount;
+  int zerobytesread_counter;
 
-  float* m_ranges;
+  float *m_ranges;
   unsigned int m_rangesCount;
+
+  unsigned int m_scanNumber;
+  unsigned int m_telegramNumber;
+  ros::Time m_receivedTime;
 
 };
 

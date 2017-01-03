@@ -59,8 +59,7 @@
  * transform for the laser
  */
 
-class SickS300
-{
+class SickS300 {
 public:
 
   SickS300();
@@ -69,7 +68,7 @@ public:
   //! Sending laserscan
   void update();
 
-  //! Broadcasting transform, if endabled
+  //! Broadcasting transform, if enabled
   void broadcast_transform();
 
 protected:
@@ -84,15 +83,19 @@ protected:
   tf::Vector3 transform_vector_;
 
   //! Scan field of view parameters
-  int field_of_view_;
-  int start_scan_;
-  int end_scan_;
+  unsigned int field_of_view_;
+  unsigned int start_scan_;
+  unsigned int end_scan_;
+
+  ros::NodeHandle param_node_;
+  ros::NodeHandle nodeHandle_;
+  std::string connect_cmd_;
 
   //! Send Transform or not
   bool send_transform_;
 
   std::string device_name_;
-  int baud_rate_;
+  unsigned int baud_rate_;
   int connected_;
 };
 
