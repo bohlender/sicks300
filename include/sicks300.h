@@ -97,6 +97,7 @@ protected:
   std::string device_name_;
   unsigned int baud_rate_;
   int connected_;
+  std::string frame_id_;
 };
 
 #endif // __SICKS300_H__
