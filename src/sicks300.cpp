@@ -52,7 +52,7 @@ SickS300::SickS300() : param_node_("~"), nodeHandle_("/") {
   double x, y, z;
 
   // reading transformation parameters from parameter server
-  param_node_.param(std::string("frame"), scan_data_.header.frame_id, std::string("base_laser_link"));
+  param_node_.param(std::string("frame"), frame_id_, std::string("base_laser_link"));
   param_node_.param<bool>(std::string("send_transform"), send_transform_, 1);
 
   param_node_.param(std::string("tf_x"), x, 0.115);
@@ -76,6 +76,7 @@ SickS300::SickS300() : param_node_("~"), nodeHandle_("/") {
   start_scan_ = 270 - field_of_view_ / 2;
   end_scan_ = 270 + field_of_view_ / 2;
 
+  scan_data_.header.frame_id = frame_id_;
   scan_data_.angle_min = (float) (-(field_of_view_ / 4.0) / 180. * M_PI);
   scan_data_.angle_max = (float) ((field_of_view_ / 4.0) / 180. * M_PI);
   scan_data_.angle_increment = (float) (0.5 / 180. * M_PI);
@@ -142,7 +143,7 @@ void SickS300::update() {
 void SickS300::broadcast_transform() {
   if (send_transform_) {
     tf_broadcaster_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0, 0, 0, 1), transform_vector_),
-                                                       ros::Time::now(), "base_link", "base_laser_link"));
+                                                       ros::Time::now(), "base_link", frame_id_));
   }
 }
 
