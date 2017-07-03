@@ -105,7 +105,7 @@ void SerialCommS300::setFlags() {
 
   term.c_cc[VMIN] = 0;
   term.c_cc[VTIME] = 5;
-  term.c_cflag = CS8 | CREAD;
+  term.c_cflag = CS8 | CREAD | HUPCL | CLOCAL;
   term.c_iflag = INPCK;
   term.c_oflag = 0;
   term.c_lflag = 0;
